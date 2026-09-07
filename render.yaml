@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: revistas-scopus-checker
+    env: python
+    plan: free
+    buildCommand: >
+      pip install -r requirements.txt &&
+      PYTHONPATH=src python -c "from sources import scopus_list, scimago; scopus_list.download_source_list(); scimago.download_dataset()"
+    startCommand: gunicorn wsgi:app --workers 2 --timeout 120
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0

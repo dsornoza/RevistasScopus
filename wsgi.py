@@ -1,0 +1,7 @@
+"""Entry point para gunicorn en producción (ver render.yaml)."""
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
+
+from public_app import app  # noqa: E402

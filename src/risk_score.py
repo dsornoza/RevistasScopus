@@ -153,17 +153,35 @@ def compute_score(scopus_info: dict, scimago_info: dict, retractions_info: dict,
                         f"{penultimo_v['anio']} a {ultimo_v['documentos']} en {ultimo_v['anio']}."
                     )
 
-        # El año en curso (incompleto) ya iguala o supera un año completo anterior:
-        # señal fuerte, porque todavía le quedan meses por sumar.
+        # Proyección anualizada del año en curso: NO comparamos el conteo parcial
+        # crudo contra un año completo (eso da falsos positivos obvios a mitad de
+        # año — cualquier revista estable "supera" al año anterior para octubre).
+        # En su lugar anualizamos según qué fracción del año ya transcurrió.
         if parcial and anios_completos and parcial["documentos"] is not None:
-            referencia = anios_completos[-1]
-            if referencia["documentos"] >= 5 and parcial["documentos"] >= referencia["documentos"]:
-                nivel = "Alto"
-                razones.append(
-                    f"El año en curso ({parcial['anio']}, aún incompleto) ya lleva {parcial['documentos']} "
-                    f"artículos, superando los {referencia['documentos']} de todo {referencia['anio']} — "
-                    "con meses todavía por delante."
-                )
+            hoy = datetime.date.today()
+            dia_del_anio = hoy.timetuple().tm_yday
+            fraccion_transcurrida = dia_del_anio / 365.0
+            # Con menos de ~3 meses de datos, la proyección es demasiado ruidosa.
+            if fraccion_transcurrida >= 0.25:
+                referencia = anios_completos[-1]
+                proyeccion = parcial["documentos"] / fraccion_transcurrida
+                if referencia["documentos"] >= 5:
+                    ratio_proyectado = proyeccion / referencia["documentos"]
+                    if ratio_proyectado >= 3:
+                        nivel = "Alto"
+                        razones.append(
+                            f"El año en curso ({parcial['anio']}) va en {parcial['documentos']} artículos; "
+                            f"al ritmo actual proyecta ~{proyeccion:.0f} para fin de año, muy por encima de "
+                            f"los {referencia['documentos']} de todo {referencia['anio']}."
+                        )
+                    elif ratio_proyectado >= 1.5:
+                        if _peso("Medio-alto") > _peso(nivel):
+                            nivel = "Medio-alto"
+                        razones.append(
+                            f"El año en curso ({parcial['anio']}) va en {parcial['documentos']} artículos; "
+                            f"al ritmo actual proyecta ~{proyeccion:.0f} para fin de año, por encima de los "
+                            f"{referencia['documentos']} de todo {referencia['anio']}."
+                        )
     else:
         razones.append(
             f"No se pudo consultar el volumen de artículos por año en Crossref: "
