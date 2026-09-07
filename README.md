@@ -18,6 +18,37 @@ cp watchlist.example.json watchlist.json
 porque revela qué revistas has usado, incluidas las que te preocupan. Cada
 quien que clone este repo empieza con `watchlist.example.json` como base.
 
+## App pública (sin estado)
+
+Además del dashboard personal (con tu watchlist), `src/public_app.py` es una
+versión pública de una sola página: cualquiera puede chequear un ISSN, pero
+**nada se guarda** — no hay watchlist compartida ni historial entre
+visitantes, así que no hace falta login para protegerla. Tiene rate limit
+(30 chequeos/hora por IP) para no abusar de Scopus/Crossref.
+
+**Desplegar en Render.com** (plan gratuito):
+
+1. Crea una cuenta en [render.com](https://render.com) — puedes entrar con tu
+   cuenta de GitHub directamente, no hace falta tarjeta para el plan free.
+2. En el dashboard de Render: **New +** → **Blueprint**.
+3. Conecta tu cuenta de GitHub si te lo pide, y selecciona el repo
+   `dsornoza/RevistasScopus`.
+4. Render detecta automáticamente `render.yaml` en la raíz del repo y
+   propone crear el servicio `revistas-scopus-checker`. Confirma con
+   **Apply**.
+5. El primer build tarda unos minutos porque descarga el Scopus Source List
+   (~20MB) y el dataset de SCImago (~85MB) *durante el build* — a propósito,
+   así el servicio no se traba la primera vez que alguien lo visita después
+   de estar dormido (el plan free se duerme tras 15 min sin tráfico).
+6. Cuando termine, Render te da una URL pública tipo
+   `https://revistas-scopus-checker.onrender.com` — esa es la que compartes.
+
+Los datos cacheados se refrescan en cada redeploy de Render, y por separado
+el GitHub Action mensual mantiene los archivos fuente actualizados en el
+repo (ver sección de abajo) — si quieres que Render también recoja esos
+refreshes automáticamente, puedes activar "Auto-Deploy" en la configuración
+del servicio para que redespliegue cada vez que el Action haga push.
+
 ## Uso
 
 **Dashboard web** (recomendado para uso diario):
