@@ -40,30 +40,64 @@ def download_dataset(force: bool = False) -> Path:
     return dest
 
 
+AÑOS_DE_HISTORIA = 6  # suficiente para las señales de riesgo y para el gráfico
+
+
 def _load_dataframe() -> pd.DataFrame:
     if "df" in _cache:
         return _cache["df"]
     path = download_dataset()
-    df = pd.read_csv(path, dtype={"Issn": str})
+    anio_minimo = datetime.date.today().year - AÑOS_DE_HISTORIA
+
+    # El CSV completo tiene ~1M de filas (1999-hoy) y con los dtypes por defecto
+    # de pandas el pico de memoria durante el parseo se acerca a los 512MB del
+    # plan free de Render. Leemos por chunks, descartamos años que no usamos y
+    # bajamos los dtypes ANTES de concatenar, para no tener nunca el dataset
+    # completo sin optimizar en memoria a la vez.
+    columnas = ["Title", "field", "year", "SJR", "h-index", "avg_citations", "Issn"]
+    dtypes_compactos = {
+        "field": "category",
+        "year": "int16",
+        "SJR": "float32",
+        "h-index": "float32",
+        "avg_citations": "float32",
+    }
+    partes = []
+    for chunk in pd.read_csv(path, usecols=columnas, dtype={"Issn": str}, chunksize=150_000):
+        chunk = chunk[chunk["year"] >= anio_minimo]
+        if chunk.empty:
+            continue
+        for col, dtype in dtypes_compactos.items():
+            chunk[col] = chunk[col].astype(dtype)
+        partes.append(chunk)
+
+    df = pd.concat(partes, ignore_index=True)
+    partes.clear()
+    df["Title"] = df["Title"].astype("category")
     df["Issn"] = df["Issn"].str.strip()
 
     # Cuartil reconstruido: rank percentil del SJR dentro de cada (field, year).
-    rank_pct = df.groupby(["field", "year"])["SJR"].rank(pct=True, ascending=False)
+    rank_pct = df.groupby(["field", "year"], observed=True)["SJR"].rank(pct=True, ascending=False)
     df["quartile"] = pd.cut(
         rank_pct, bins=[0, 0.25, 0.5, 0.75, 1.0], labels=[1, 2, 3, 4], include_lowest=True
-    ).astype("Int64")
+    ).astype("Int8")
+
+    # Índice ISSN normalizado -> posiciones de fila, construido una sola vez.
+    # Evita repetir un .apply() sobre las ~700k filas en cada chequeo de revista.
+    indice = {}
+    for pos, celda in enumerate(df["Issn"].fillna("")):
+        for parte in celda.split(","):
+            norm = _normalize_issn(parte)
+            if norm:
+                indice.setdefault(norm, []).append(pos)
 
     _cache["df"] = df
+    _cache["indice_issn"] = indice
     return df
 
 
 def _normalize_issn(issn: str) -> str:
     return "".join(ch for ch in (issn or "") if ch.isalnum()).upper()
-
-
-def _issn_matches(cell: str, target: str) -> bool:
-    # La columna Issn puede traer varios ISSN separados por coma (ej. impreso+electrónico).
-    return any(_normalize_issn(part) == target for part in str(cell).split(","))
 
 
 def lookup_history(issn: str) -> dict:
@@ -73,7 +107,8 @@ def lookup_history(issn: str) -> dict:
     if not target:
         return {"encontrada": False, "motivo": "ISSN vacío o inválido"}
 
-    subset_todas_categorias = df[df["Issn"].fillna("").apply(lambda c: _issn_matches(c, target))]
+    posiciones = _cache["indice_issn"].get(target, [])
+    subset_todas_categorias = df.iloc[posiciones]
     if subset_todas_categorias.empty:
         return {
             "encontrada": False,

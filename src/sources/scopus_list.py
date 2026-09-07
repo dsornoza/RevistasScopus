@@ -48,20 +48,48 @@ def download_source_list(force: bool = False) -> Path:
     return dest
 
 
+def _find_column(columnas, *keywords: str):
+    for col in columnas:
+        low = str(col).strip().lower()
+        if all(k in low for k in keywords):
+            return col
+    return None
+
+
 def _load_dataframe() -> pd.DataFrame:
     if "df" in _cache:
         return _cache["df"]
     path = download_source_list()
     # El archivo trae varias hojas (Sources, Accepted Titles, Discontinued Titles,
-    # Conference Proceedings, etc). La que necesitamos es la que tiene la columna
-    # "Active or Inactive"; no asumimos que sea la de más filas (esa suele ser la
-    # de conference proceedings).
-    sheets = pd.read_excel(path, sheet_name=None, dtype=str)
+    # Conference Proceedings —esta última con ~180k filas que no usamos—, etc) y
+    # la hoja de Sources sola trae 52 columnas, de las que solo usamos 7 (el resto
+    # son flags de categoría ASJC). En un hosting con poca RAM (Render free,
+    # 512MB) cargar todo eso de más casi agota la memoria, así que:
+    #  1. leemos cada hoja SOLO con nrows=0 para ver sus columnas (barato) hasta
+    #     encontrar la que tiene "Active or Inactive",
+    #  2. recién ahí releemos esa hoja completa pero con usecols limitado a las
+    #     columnas que realmente necesitamos.
     df = None
-    for sheet_df in sheets.values():
-        cols_lower = [str(c).strip().lower() for c in sheet_df.columns]
-        if any("active" in c and "inactive" in c for c in cols_lower):
-            df = sheet_df
+    with pd.ExcelFile(path, engine="openpyxl", engine_kwargs={"read_only": True}) as libro:
+        for nombre_hoja in libro.sheet_names:
+            header = pd.read_excel(libro, sheet_name=nombre_hoja, nrows=0)
+            cols_lower = [str(c).strip().lower() for c in header.columns]
+            if not any("active" in c and "inactive" in c for c in cols_lower):
+                continue
+
+            necesarias = [
+                c
+                for c in [
+                    _find_column(header.columns, "sourcerecord"),
+                    _find_column(header.columns, "source", "title") or _find_column(header.columns, "title"),
+                    _find_column(header.columns, "active"),
+                    _find_column(header.columns, "coverage"),
+                    _find_column(header.columns, "publisher"),
+                ]
+                if c
+            ] + [c for c in header.columns if "issn" in str(c).lower()]
+
+            df = pd.read_excel(libro, sheet_name=nombre_hoja, dtype=str, usecols=necesarias)
             break
     if df is None:
         raise RuntimeError(
@@ -69,16 +97,20 @@ def _load_dataframe() -> pd.DataFrame:
             "'Active or Inactive') en el xlsx descargado. Revisar estructura del archivo."
         )
     df.columns = [str(c).strip() for c in df.columns]
+
+    # Índice ISSN normalizado -> posición de fila, construido una sola vez
+    # (evita un df.iterrows() sobre las ~49k filas en cada chequeo de revista).
+    issn_cols = [c for c in df.columns if "issn" in c.lower()]
+    indice = {}
+    for pos in range(len(df)):
+        for col in issn_cols:
+            norm = _normalize_issn(str(df.iat[pos, df.columns.get_loc(col)]))
+            if norm:
+                indice.setdefault(norm, pos)
+
     _cache["df"] = df
+    _cache["indice_issn"] = indice
     return df
-
-
-def _find_column(df: pd.DataFrame, *keywords: str):
-    for col in df.columns:
-        low = col.lower()
-        if all(k in low for k in keywords):
-            return col
-    return None
 
 
 def _normalize_issn(issn: str) -> str:
@@ -92,24 +124,23 @@ def lookup_by_issn(issn: str) -> dict:
     if not target:
         return {"encontrada": False, "motivo": "ISSN vacío o inválido"}
 
-    issn_cols = [c for c in df.columns if "issn" in c.lower()]
-    title_col = _find_column(df, "source", "title") or _find_column(df, "title")
-    status_col = _find_column(df, "active") or _find_column(df, "status") or _find_column(df, "inactive")
-    coverage_col = _find_column(df, "coverage")
-    publisher_col = _find_column(df, "publisher")
-    sourcerecord_col = _find_column(df, "sourcerecord")
+    pos = _cache["indice_issn"].get(target)
+    if pos is None:
+        return {"encontrada": False, "motivo": "ISSN no aparece en el Scopus Source List actual"}
 
-    for _, row in df.iterrows():
-        for col in issn_cols:
-            val = _normalize_issn(str(row.get(col, "")))
-            if val and val == target:
-                return {
-                    "encontrada": True,
-                    "titulo": row.get(title_col) if title_col else None,
-                    "estado": row.get(status_col) if status_col else None,
-                    "cobertura": row.get(coverage_col) if coverage_col else None,
-                    "editorial": row.get(publisher_col) if publisher_col else None,
-                    "sourcerecord_id": row.get(sourcerecord_col) if sourcerecord_col else None,
-                    "fuente_fecha": download_source_list().stat().st_mtime,
-                }
-    return {"encontrada": False, "motivo": "ISSN no aparece en el Scopus Source List actual"}
+    row = df.iloc[pos]
+    title_col = _find_column(df.columns, "source", "title") or _find_column(df.columns, "title")
+    status_col = _find_column(df.columns, "active")
+    coverage_col = _find_column(df.columns, "coverage")
+    publisher_col = _find_column(df.columns, "publisher")
+    sourcerecord_col = _find_column(df.columns, "sourcerecord")
+
+    return {
+        "encontrada": True,
+        "titulo": row.get(title_col) if title_col else None,
+        "estado": row.get(status_col) if status_col else None,
+        "cobertura": row.get(coverage_col) if coverage_col else None,
+        "editorial": row.get(publisher_col) if publisher_col else None,
+        "sourcerecord_id": row.get(sourcerecord_col) if sourcerecord_col else None,
+        "fuente_fecha": download_source_list().stat().st_mtime,
+    }

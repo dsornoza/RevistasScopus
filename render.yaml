@@ -6,7 +6,10 @@ services:
     buildCommand: >
       pip install -r requirements.txt &&
       PYTHONPATH=src python -c "from sources import scopus_list, scimago; scopus_list.download_source_list(); scimago.download_dataset()"
-    startCommand: gunicorn wsgi:app --workers 2 --timeout 120
+    # 1 worker: el plan free de Render tiene 512MB de RAM y el dataset de
+    # SCImago (~700k filas) queda cacheado en memoria por worker — con 2
+    # workers duplicábamos ese consumo y nos acercábamos al límite.
+    startCommand: gunicorn wsgi:app --workers 1 --timeout 60
     envVars:
       - key: PYTHON_VERSION
         value: 3.12.0
