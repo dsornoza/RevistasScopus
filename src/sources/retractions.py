@@ -17,7 +17,7 @@ def recent_retractions(issn: str, months: int = 24) -> dict:
         "rows": 100,
     }
     try:
-        resp = requests.get(API_URL, params=params, timeout=30)
+        resp = requests.get(API_URL, params=params, timeout=10)
         resp.raise_for_status()
     except requests.RequestException as exc:
         return {"consultada": False, "motivo": str(exc)}
