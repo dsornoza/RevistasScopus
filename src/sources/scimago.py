@@ -28,7 +28,7 @@ RAW_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
 _cache = {}
 
 
-def _download_dataset(force: bool = False) -> Path:
+def download_dataset(force: bool = False) -> Path:
     RAW_DIR.mkdir(parents=True, exist_ok=True)
     month_tag = datetime.date.today().strftime("%Y-%m")
     dest = RAW_DIR / f"scimago_indicators_{month_tag}.csv"
@@ -43,7 +43,7 @@ def _download_dataset(force: bool = False) -> Path:
 def _load_dataframe() -> pd.DataFrame:
     if "df" in _cache:
         return _cache["df"]
-    path = _download_dataset()
+    path = download_dataset()
     df = pd.read_csv(path, dtype={"Issn": str})
     df["Issn"] = df["Issn"].str.strip()
 

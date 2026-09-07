@@ -1,0 +1,16 @@
+{
+  "scopus_source_list": {
+    "sha256": "f42a7a28e6ad50c0cd49a5020bd8024d9abb289a753b95ca7048069d92fddb0c",
+    "actualizado": "2026-09-07T16:29:58+00:00",
+    "release_tag": "data-2026-09",
+    "url": "https://github.com/dsornoza/RevistasScopus/releases/download/data-2026-09/scopus_source_list_2026-09.xlsx",
+    "tamano_bytes": 19939838
+  },
+  "scimago_indicators": {
+    "sha256": "e6dcbd3fa596c0965712a98749f7e9253ae1683c05db43a0d30df2d983dc6cfc",
+    "actualizado": "2026-09-07T16:31:25+00:00",
+    "release_tag": "data-2026-09",
+    "url": "https://github.com/dsornoza/RevistasScopus/releases/download/data-2026-09/scimago_indicators_2026-09.csv",
+    "tamano_bytes": 84406715
+  }
+}
