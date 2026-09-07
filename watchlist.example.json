@@ -1,0 +1,11 @@
+{
+  "revistas": [
+    {
+      "nombre": "EJEMPLO - reemplaza esta entrada",
+      "issn": "0000-0000",
+      "editorial": "",
+      "fecha_publicacion_propia": "",
+      "notas": "Copia este archivo a watchlist.json y agrega aquí las revistas que quieres monitorear."
+    }
+  ]
+}

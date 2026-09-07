@@ -1,0 +1,14 @@
+.venv/
+__pycache__/
+*.pyc
+
+# Datos personales / generados localmente — no se versionan
+watchlist.json
+data/raw/
+data/history/
+reports/*.md
+
+# Config local de Claude Code (permisos de esta máquina, no del proyecto)
+.claude/
+
+.DS_Store
