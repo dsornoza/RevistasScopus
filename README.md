@@ -53,6 +53,26 @@ Para no tener que acordarte de correrlo, puedes programarlo mensualmente
 (coincide con la cadencia de actualización del Scopus Source List) usando la
 skill `schedule` de Claude Code, apuntando al comando de arriba.
 
+## Datos cacheados: refresh mensual automático
+
+Un GitHub Action (`.github/workflows/refresh-data.yml`) corre el día 5 de cada
+mes y descarga el Scopus Source List oficial y el dataset de SCImago más
+recientes. Solo publica un nuevo release (`data-YYYY-MM` en
+[Releases](../../releases)) si el archivo realmente cambió — `data/latest.json`
+registra la fecha y el hash de la última versión de cada fuente. Esto importa
+porque **Scopus actualiza su lista mensualmente, pero SCImago solo publica
+datos nuevos una vez al año (abril–junio)**: la mayoría de los meses el
+refresh no encontrará cambios en SCImago, y eso es lo esperado, no un fallo.
+
+Puedes disparar un refresh manual desde la pestaña Actions del repo
+("Run workflow"), o localmente con:
+
+```bash
+./.venv/bin/python scripts/refresh_cached_data.py
+```
+
+(requiere `gh auth login` con permiso de escritura sobre el repo).
+
 ## Fuentes usadas y sus límites
 
 - **Scopus Source List oficial** (Elsevier): fuente de verdad, descarga
