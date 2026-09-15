@@ -4,6 +4,7 @@ El listado se publica sin login en elsevier.com/products/scopus/content como un
 .xlsx cuyo nombre de archivo cambia cada mes (ej. ext_list_Jul_2026.xlsx), así
 que primero resolvemos la URL actual parseando esa página.
 """
+import pickle
 import re
 import datetime
 from pathlib import Path
@@ -13,6 +14,7 @@ import pandas as pd
 
 CONTENT_PAGE_URL = "https://www.elsevier.com/products/scopus/content"
 RAW_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
+CACHE_PICKLE = RAW_DIR / "scopus_cache.pkl"
 XLSX_LINK_RE = re.compile(r"(https?:)?//downloads\.ctfassets\.net/[^\"'\s]+\.xlsx", re.IGNORECASE)
 
 _cache = {}
@@ -59,6 +61,32 @@ def _find_column(columnas, *keywords: str):
 def _load_dataframe() -> pd.DataFrame:
     if "df" in _cache:
         return _cache["df"]
+
+    # Fast path: si ya corrimos precompute_cache() (ej. durante el build en
+    # Render), evitamos volver a parsear el xlsx completo con openpyxl —en un
+    # hosting con CPU limitada (Render free, 0.1 vCPU) ese parseo por sí solo
+    # puede tardar más que el timeout de una petición HTTP.
+    if CACHE_PICKLE.exists():
+        with CACHE_PICKLE.open("rb") as f:
+            datos = pickle.load(f)
+        _cache["df"] = datos["df"]
+        _cache["indice_issn"] = datos["indice_issn"]
+        return _cache["df"]
+
+    return _parse_from_source()
+
+
+def precompute_cache() -> None:
+    """Fuerza el parseo completo y lo guarda en disco para lecturas futuras
+    instantáneas. Pensado para correr en el build (CPU sin límite de tiempo
+    por petición), no en producción."""
+    _parse_from_source()
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    with CACHE_PICKLE.open("wb") as f:
+        pickle.dump({"df": _cache["df"], "indice_issn": _cache["indice_issn"]}, f)
+
+
+def _parse_from_source() -> pd.DataFrame:
     path = download_source_list()
     # El archivo trae varias hojas (Sources, Accepted Titles, Discontinued Titles,
     # Conference Proceedings —esta última con ~180k filas que no usamos—, etc) y

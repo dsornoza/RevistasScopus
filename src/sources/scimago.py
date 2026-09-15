@@ -17,6 +17,7 @@ SCImago. Una revista puede estar en varias categorías; tomamos el mejor
 cuartil (el número más bajo) entre todas, igual que hace SCImago.
 """
 import datetime
+import pickle
 from pathlib import Path
 
 import requests
@@ -24,6 +25,7 @@ import pandas as pd
 
 CSV_URL = "https://raw.githubusercontent.com/Michael-E-Rose/SCImagoJournalRankIndicators/master/all.csv"
 RAW_DIR = Path(__file__).resolve().parents[2] / "data" / "raw"
+CACHE_PICKLE = RAW_DIR / "scimago_cache.pkl"
 
 _cache = {}
 
@@ -46,6 +48,32 @@ AÑOS_DE_HISTORIA = 6  # suficiente para las señales de riesgo y para el gráfi
 def _load_dataframe() -> pd.DataFrame:
     if "df" in _cache:
         return _cache["df"]
+
+    # Fast path: si ya corrimos precompute_cache() (ej. durante el build en
+    # Render), evitamos repetir el parseo por chunks + groupby de cuartiles —
+    # en CPU limitada (Render free, 0.1 vCPU) eso puede tardar más que el
+    # timeout de una petición HTTP.
+    if CACHE_PICKLE.exists():
+        with CACHE_PICKLE.open("rb") as f:
+            datos = pickle.load(f)
+        _cache["df"] = datos["df"]
+        _cache["indice_issn"] = datos["indice_issn"]
+        return _cache["df"]
+
+    return _parse_from_source()
+
+
+def precompute_cache() -> None:
+    """Fuerza el parseo completo y lo guarda en disco para lecturas futuras
+    instantáneas. Pensado para correr en el build (CPU sin límite de tiempo
+    por petición), no en producción."""
+    _parse_from_source()
+    RAW_DIR.mkdir(parents=True, exist_ok=True)
+    with CACHE_PICKLE.open("wb") as f:
+        pickle.dump({"df": _cache["df"], "indice_issn": _cache["indice_issn"]}, f)
+
+
+def _parse_from_source() -> pd.DataFrame:
     path = download_dataset()
     anio_minimo = datetime.date.today().year - AÑOS_DE_HISTORIA
 

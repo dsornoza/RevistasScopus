@@ -3,9 +3,14 @@ services:
     name: revistas-scopus-checker
     env: python
     plan: free
+    # precompute_cache() hace el parseo pesado (openpyxl + pandas groupby) UNA
+    # vez aquí, en el build, donde no hay límite de tiempo por petición. El
+    # plan free tiene solo 0.1 vCPU: ese mismo cómputo en tiempo de request
+    # excedía el timeout de gunicorn. En runtime solo se carga un pickle ya
+    # listo (instantáneo).
     buildCommand: >
       pip install -r requirements.txt &&
-      PYTHONPATH=src python -c "from sources import scopus_list, scimago; scopus_list.download_source_list(); scimago.download_dataset()"
+      PYTHONPATH=src python -c "from sources import scopus_list, scimago; scopus_list.precompute_cache(); scimago.precompute_cache()"
     # 1 worker: el plan free de Render tiene 512MB de RAM y el dataset de
     # SCImago (~700k filas) queda cacheado en memoria por worker — con 2
     # workers duplicábamos ese consumo y nos acercábamos al límite.
