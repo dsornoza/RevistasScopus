@@ -60,9 +60,8 @@ PAGE = """
   <div class="aviso">
     Esto NO es una predicción certera de exclusión — ningún sistema anuncia
     una baja de Scopus antes que Scopus mismo. Son señales de riesgo (estado
-    oficial, tendencias de SJR/cuartil, retractaciones, volumen de
-    publicación) para decidir con más cautela. Nada de lo que ingreses aquí
-    se guarda.
+    oficial, tendencias de SJR, retractaciones, volumen de publicación) para
+    decidir con más cautela. Nada de lo que ingreses aquí se guarda.
   </div>
 
   <form method="post" action="/">
@@ -94,7 +93,7 @@ PAGE = """
       No aparece en el Scopus Source List actual.
     {% endif %}
 
-    <h4>Histórico SCImago (SJR / cuartil estimado)</h4>
+    <h4>Histórico SCImago (SJR)</h4>
     {% if d.scimago and d.scimago.encontrada %}
       <div class="chart-wrap"><canvas id="chart" height="220"></canvas></div>
       <script>
@@ -104,20 +103,17 @@ PAGE = """
           data: {
             labels: historia.map(function(h){ return h.anio; }),
             datasets: [
-              { label: "SJR", data: historia.map(function(h){ return h.sjr; }), borderColor: "#1f6feb", backgroundColor: "#1f6feb", yAxisID: "y_sjr", spanGaps: true },
-              { label: "Cuartil estimado", data: historia.map(function(h){ return h.cuartil; }), borderColor: "#bc4c00", backgroundColor: "#bc4c00", yAxisID: "y_cuartil", spanGaps: true }
+              { label: "SJR", data: historia.map(function(h){ return h.sjr; }), borderColor: "#1f6feb", backgroundColor: "#1f6feb", yAxisID: "y_sjr", spanGaps: true }
             ]
           },
           options: {
             responsive: true,
             scales: {
-              y_sjr: { type: "linear", position: "left", title: { display: true, text: "SJR" } },
-              y_cuartil: { type: "linear", position: "right", reverse: true, min: 1, max: 4, ticks: { stepSize: 1, callback: function(v){ return "Q"+v; } }, title: { display: true, text: "Cuartil (mejor arriba)" }, grid: { drawOnChartArea: false } }
+              y_sjr: { type: "linear", position: "left", title: { display: true, text: "SJR" } }
             }
           }
         });
       </script>
-      <small class="hint">Cuartil estimado por nosotros (ranking de SJR por categoría ASJC), no es el oficial de Scopus.</small>
     {% else %}
       Sin datos en el dataset de SCImago.
     {% endif %}

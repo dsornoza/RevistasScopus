@@ -106,27 +106,25 @@ PAGE = """
                    href="https://www.scopus.com/sourceid/{{ d.scopus.sourcerecord_id }}#tabs=1">
                    Ver CiteScore/cuartil oficial en Scopus ↗
                 </a>
-                <small class="hint">(abre en tu navegador; el cuartil de la tabla de abajo es un estimado nuestro, no el oficial)</small>
+                <small class="hint">(abre en tu navegador — es la única forma confiable de ver el cuartil real)</small>
               {% endif %}
             {% else %}
               No aparece en el Scopus Source List actual.
             {% endif %}
 
-            <h4>Histórico SCImago (SJR / cuartil estimado / h-index / citas por doc.)</h4>
+            <h4>Histórico SCImago (SJR / h-index / citas por doc.)</h4>
             {% if d.scimago and d.scimago.encontrada %}
               <table>
-                <tr><th>Año</th><th>SJR</th><th>Cuartil*</th><th>h-index</th><th>Citas/doc</th></tr>
+                <tr><th>Año</th><th>SJR</th><th>h-index</th><th>Citas/doc</th></tr>
                 {% for h in d.scimago.historia %}
                 <tr>
                   <td>{{ h.anio }}</td>
                   <td>{{ "%.3f"|format(h.sjr) if h.sjr is not none else "-" }}</td>
-                  <td>{{ "Q" ~ h.cuartil if h.cuartil is not none else "-" }}</td>
                   <td>{{ h.h_index if h.h_index is not none else "-" }}</td>
                   <td>{{ "%.2f"|format(h.avg_citations) if h.avg_citations is not none else "-" }}</td>
                 </tr>
                 {% endfor %}
               </table>
-              <small class="hint">*Cuartil estimado por nosotros (ranking de SJR dentro de su categoría ASJC y año), no es el cuartil/CiteScore oficial de Scopus.</small>
 
               <div class="chart-wrap">
                 <canvas id="chart-{{ r.issn|replace('-','_') }}" height="220"></canvas>
@@ -147,27 +145,13 @@ PAGE = """
                           backgroundColor: "#1f6feb",
                           yAxisID: "y_sjr",
                           spanGaps: true,
-                        },
-                        {
-                          label: "Cuartil estimado",
-                          data: historia.map(function(h) { return h.cuartil; }),
-                          borderColor: "#bc4c00",
-                          backgroundColor: "#bc4c00",
-                          yAxisID: "y_cuartil",
-                          spanGaps: true,
                         }
                       ]
                     },
                     options: {
                       responsive: true,
                       scales: {
-                        y_sjr: { type: "linear", position: "left", title: { display: true, text: "SJR" } },
-                        y_cuartil: {
-                          type: "linear", position: "right", reverse: true, min: 1, max: 4,
-                          ticks: { stepSize: 1, callback: function(v) { return "Q" + v; } },
-                          title: { display: true, text: "Cuartil (mejor arriba)" },
-                          grid: { drawOnChartArea: false }
-                        }
+                        y_sjr: { type: "linear", position: "left", title: { display: true, text: "SJR" } }
                       }
                     }
                   });

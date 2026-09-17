@@ -1,4 +1,4 @@
-"""Histórico de SJR/cuartil/h-index/citas promedio por revista.
+"""Histórico de SJR/h-index/citas promedio por revista.
 
 NOTA IMPORTANTE: scimagojr.com está detrás de Cloudflare y bloquea con 403
 cualquier request programático (probado con requests y curl con distintos
@@ -7,14 +7,16 @@ herramienta NO scrapea el sitio en vivo. En su lugar usa el dataset comunitario
 de Michael E. Rose (github.com/Michael-E-Rose/SCImagoJournalRankIndicators),
 que republica los mismos indicadores de SCImago como CSV plano, actualizado
 periódicamente (no en tiempo real). Columnas disponibles: Title, field, year,
-SJR, h-index, avg_citations, Issn, Sourceid. No incluye cuartil ni volumen de
-documentos/año ni % de autocitación de forma directa.
+SJR, h-index, avg_citations, Issn, Sourceid.
 
-El cuartil ("SJR Best Quartile") SÍ se puede reconstruir: para cada año,
-rankeamos el SJR de cada revista contra las demás de su misma categoría ASJC
-("field") y la dividimos en 4 franjas iguales — el mismo método que usa
-SCImago. Una revista puede estar en varias categorías; tomamos el mejor
-cuartil (el número más bajo) entre todas, igual que hace SCImago.
+NO intentamos reconstruir el cuartil: lo probamos rankeando el SJR dentro de
+la categoría ASJC ("field") de cada revista, pero esa columna solo trae el
+código de categoría amplio (ej. "1700 Computer Science", miles de revistas),
+no la subcategoría específica que usa Scopus para su CiteScore rank (ej.
+"Computer Graphics and Computer-Aided Design", ~130 revistas). El grupo de
+comparación queda demasiado amplio y el resultado no se parece al cuartil
+oficial — verificado con un caso real. Para el cuartil/CiteScore real, ver el
+link a la página oficial de Scopus que agrega scopus_list.py.
 """
 import datetime
 import pickle
@@ -50,8 +52,8 @@ def _load_dataframe() -> pd.DataFrame:
         return _cache["df"]
 
     # Fast path: si ya corrimos precompute_cache() (ej. durante el build en
-    # Render), evitamos repetir el parseo por chunks + groupby de cuartiles —
-    # en CPU limitada (Render free, 0.1 vCPU) eso puede tardar más que el
+    # Render), evitamos repetir el parseo por chunks del CSV completo — en
+    # CPU limitada (Render free, 0.1 vCPU) eso puede tardar más que el
     # timeout de una petición HTTP.
     if CACHE_PICKLE.exists():
         with CACHE_PICKLE.open("rb") as f:
@@ -104,12 +106,6 @@ def _parse_from_source() -> pd.DataFrame:
     df["Title"] = df["Title"].astype("category")
     df["Issn"] = df["Issn"].str.strip()
 
-    # Cuartil reconstruido: rank percentil del SJR dentro de cada (field, year).
-    rank_pct = df.groupby(["field", "year"], observed=True)["SJR"].rank(pct=True, ascending=False)
-    df["quartile"] = pd.cut(
-        rank_pct, bins=[0, 0.25, 0.5, 0.75, 1.0], labels=[1, 2, 3, 4], include_lowest=True
-    ).astype("Int8")
-
     # Índice ISSN normalizado -> posiciones de fila, construido una sola vez.
     # Evita repetir un .apply() sobre las ~700k filas en cada chequeo de revista.
     indice = {}
@@ -144,19 +140,11 @@ def lookup_history(issn: str) -> dict:
             "(puede ser una revista nueva, o revisar manualmente en scimagojr.com)",
         }
 
-    # Mejor cuartil por año entre todas las categorías ASJC de la revista.
-    mejor_cuartil_por_anio = (
-        subset_todas_categorias.groupby("year")["quartile"].min().to_dict()
-    )
-
     subset = subset_todas_categorias.drop_duplicates(subset=["year"]).sort_values("year")
     historia = [
         {
             "anio": int(row["year"]),
             "sjr": None if pd.isna(row["SJR"]) else float(row["SJR"]),
-            "cuartil": None
-            if pd.isna(mejor_cuartil_por_anio.get(row["year"]))
-            else int(mejor_cuartil_por_anio[row["year"]]),
             "h_index": None if pd.isna(row["h-index"]) else int(row["h-index"]),
             "avg_citations": None if pd.isna(row["avg_citations"]) else float(row["avg_citations"]),
         }

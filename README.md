@@ -122,9 +122,13 @@ Puedes disparar un refresh manual desde la pestaña Actions del repo
 - **CiteScore/cuartil oficial y estado "on hold/CSAB"**: NO son automatizables.
   Viven detrás de un Cloudflare bot-check en scopus.com incluso en modo
   "preview" sin cuenta — no vamos a construir un scraper que lo sortee. El
-  dashboard sí calcula un cuartil *estimado* (ranking de SJR por categoría
-  ASJC) y trae un botón que abre la página oficial de Scopus en tu navegador
-  para que la revises tú mismo cuando quieras el dato real.
+  dashboard trae un botón que abre la página oficial de Scopus en tu navegador
+  para que la revises tú mismo. Probamos calcular un cuartil estimado
+  (ranking de SJR por categoría ASJC) pero lo quitamos: la columna de
+  categoría del dataset comunitario solo trae el nivel amplio (ej. "1700
+  Computer Science", miles de revistas), no la subcategoría específica que
+  usa Scopus (ej. "Computer Graphics", ~130 revistas) — el resultado no se
+  parecía al cuartil real y llegó a generar falsos positivos en el score.
 - **Señales de comunidad** (foros, listas de revistas cuestionadas): no
   automatizadas por falta de una fuente gratuita confiable. Si quieres,
   pídeme una búsqueda puntual para una revista específica.
@@ -140,12 +144,12 @@ aquí ni lo estarán sin poder verificar cómo calculan su veredicto.
 - **Alto**: la revista ya figura "Inactive" en Scopus (o no aparece en el
   listado actual), el dataset de SCImago la marca "(discontinued)", explosión
   de volumen de artículos (≥3x interanual, o el año en curso ya supera el
-  año completo anterior).
-- **Medio-alto**: caída de SJR >30% interanual, caída de 2+ cuartiles, SJR
-  faltante en el último año, ≥2 retractaciones en 24 meses, cambio de
-  editorial, o crecimiento de volumen ≥1.5x.
-- **Medio**: 1 retractación reciente, caída de 1 cuartil, o declive sostenido
-  de citas por documento en 3 años.
+  año completo anterior proyectado).
+- **Medio-alto**: caída de SJR >30% interanual, SJR faltante en el último
+  año, ≥2 retractaciones en 24 meses, cambio de editorial, o crecimiento de
+  volumen ≥1.5x.
+- **Medio**: 1 retractación reciente, o declive sostenido de citas por
+  documento en 3 años.
 - **Bajo**: sin señales detectadas.
 
 Cada score viene con las razones concretas — revísalas, el número solo no

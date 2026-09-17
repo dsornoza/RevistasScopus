@@ -52,26 +52,6 @@ def compute_score(scopus_info: dict, scimago_info: dict, retractions_info: dict,
                         f"({penultimo['sjr']:.3f}) y {ultimo['anio']} ({ultimo['sjr']:.3f})."
                     )
 
-        # Caída de cuartil interanual (entre los dos últimos años con dato).
-        con_cuartil = [h for h in toda_la_historia if h["cuartil"] is not None]
-        if len(con_cuartil) >= 2:
-            ultimo_c, penultimo_c = con_cuartil[-1], con_cuartil[-2]
-            salto = ultimo_c["cuartil"] - penultimo_c["cuartil"]  # positivo = empeoró
-            if salto >= 2:
-                if _peso("Medio-alto") > _peso(nivel):
-                    nivel = "Medio-alto"
-                razones.append(
-                    f"El cuartil empeoró de Q{penultimo_c['cuartil']} ({penultimo_c['anio']}) "
-                    f"a Q{ultimo_c['cuartil']} ({ultimo_c['anio']})."
-                )
-            elif salto == 1:
-                if _peso("Medio") > _peso(nivel):
-                    nivel = "Medio"
-                razones.append(
-                    f"El cuartil bajó de Q{penultimo_c['cuartil']} ({penultimo_c['anio']}) "
-                    f"a Q{ultimo_c['cuartil']} ({ultimo_c['anio']})."
-                )
-
         # SJR faltante en el año más reciente, habiendo existido el año anterior:
         # suele pasar cuando la revista ya está en revisión/proceso de exclusión.
         if len(toda_la_historia) >= 2:
